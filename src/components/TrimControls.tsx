@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { formatClock, type TrimSelection } from "../media/trimSelection";
 
 interface TrimControlsProps {
@@ -29,11 +30,20 @@ export function TrimControls({
   onFadeOut,
   onPreview,
 }: TrimControlsProps) {
+  const railStyle = {
+    "--selection-start": `${(selection.start / Math.max(duration, 1)) * 100}%`,
+    "--selection-width": `${(selection.length / Math.max(duration, 1)) * 100}%`,
+  } as CSSProperties;
+
   return (
     <section aria-labelledby="trim-heading" className="trim-controls">
       <div className="section-heading">
         <h2 id="trim-heading">Kullanacağın bölümü seç</h2>
         <output>{formatClock(selection.start)} – {formatClock(selection.end)}</output>
+      </div>
+
+      <div className="timeline-rail" style={railStyle} aria-hidden="true">
+        <span />
       </div>
 
       <label>

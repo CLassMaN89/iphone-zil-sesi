@@ -66,6 +66,12 @@ async function loadEditor(user: ReturnType<typeof userEvent.setup>, duration = 4
 }
 
 describe("App", () => {
+  it("starts with one clear page heading", () => {
+    render(<App createTranscoder={async () => new RecordingTranscoder()} />);
+
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+  });
+
   it("creates a downloadable ringtone from the selected range", async () => {
     const user = userEvent.setup();
     const transcoder = new RecordingTranscoder();
@@ -142,6 +148,11 @@ describe("App", () => {
     await loadEditor(user);
     await user.click(screen.getByRole("button", { name: "Zil sesini hazırla" }));
     expect(await screen.findByText("Dönüştürülüyor: %42")).toBeVisible();
+    expect(screen.getByRole("progressbar", { name: "Dönüştürme ilerlemesi" })).toBeVisible();
+    expect(screen.getByText("Dönüştürülüyor: %42").parentElement).toHaveAttribute(
+      "aria-live",
+      "polite",
+    );
 
     finish({
       blob: new Blob(["done"], { type: "audio/mp4" }),

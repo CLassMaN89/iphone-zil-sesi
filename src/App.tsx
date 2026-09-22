@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { ConversionResult } from "./components/ConversionResult";
 import { FilePicker } from "./components/FilePicker";
+import { GarageBandGuide } from "./components/GarageBandGuide";
 import { TrimControls } from "./components/TrimControls";
 import { useObjectUrl } from "./hooks/useObjectUrl";
 import { safeOutputName, validateMediaFile } from "./media/mediaFile";
@@ -160,6 +161,7 @@ export function App({ createTranscoder = createBrowserTranscoder }: AppProps) {
   return (
     <main className="app-shell">
       <header className="hero">
+        <div className="sound-mark" aria-hidden="true"><span /><span /><span /><span /></div>
         <p className="privacy-note">Dosyan cihazından çıkmaz</p>
         <h1>iPhone zil sesini kendin hazırla</h1>
         <p>Video veya sesinden en fazla 30 saniyeyi seç. Dosyayı indir, GarageBand ile zil sesi yap.</p>
@@ -237,11 +239,14 @@ export function App({ createTranscoder = createBrowserTranscoder }: AppProps) {
         )}
 
         {state.name === "complete" && downloadUrl && (
-          <ConversionResult
-            result={state.result}
-            downloadUrl={downloadUrl}
-            onConvertAgain={convert}
-          />
+          <>
+            <ConversionResult
+              result={state.result}
+              downloadUrl={downloadUrl}
+              onConvertAgain={convert}
+            />
+            <GarageBandGuide />
+          </>
         )}
       </section>
     </main>
