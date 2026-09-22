@@ -113,6 +113,21 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Zil sesini hazırla" })).toBeDisabled();
   });
 
+  it("explains how to recover when the browser cannot read selected media", async () => {
+    const user = userEvent.setup();
+    render(<App createTranscoder={async () => new RecordingTranscoder()} />);
+
+    await user.upload(
+      screen.getByLabelText("Video veya ses dosyası seç"),
+      new File(["not audio"], "bozuk.mp3", { type: "audio/mpeg" }),
+    );
+    fireEvent.error(await screen.findByTestId("media-preview"));
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Dosya oynatılamadı. Başka bir MP3, M4A, WAV veya MP4 seçin.",
+    );
+  });
+
   it("preserves the editor after a failure and permits retry", async () => {
     const user = userEvent.setup();
     const first = new RecordingTranscoder();
@@ -125,7 +140,7 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Zil sesini hazırla" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Tekrar deneyin");
-    expect(screen.getByLabelText("Başlangıç")).toHaveValue(0);
+    expect(screen.getByLabelText("Başlangıç")).toHaveValue("0");
     await user.click(screen.getByRole("button", { name: "Tekrar dene" }));
     expect(await screen.findByRole("link", { name: "Ses dosyasını indir" })).toBeVisible();
     expect(second.requests).toHaveLength(1);
@@ -169,9 +184,10 @@ describe("App", () => {
     await loadEditor(user, 45);
     await user.clear(screen.getByLabelText("Başlangıç"));
     await user.type(screen.getByLabelText("Başlangıç"), "45");
+    await user.tab();
 
-    expect(screen.getByLabelText("Başlangıç")).toHaveValue(44);
-    expect(screen.getByLabelText("Süre")).toHaveValue(1);
+    expect(screen.getByLabelText("Başlangıç")).toHaveValue("44");
+    expect(screen.getByLabelText("Süre")).toHaveValue("1");
   });
 
   it("revokes the previous download URL before exposing a replacement", async () => {

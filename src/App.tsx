@@ -97,6 +97,14 @@ export function App({ createTranscoder = createBrowserTranscoder }: AppProps) {
     }
   }
 
+  function mediaFailed() {
+    setState({
+      name: "error",
+      message: "Dosya oynatılamadı. Başka bir MP3, M4A, WAV veya MP4 seçin.",
+      recoverable: false,
+    });
+  }
+
   function updateSelection(start: number, length: number) {
     if (!editable) return;
     const selection = normalizeSelection(editable.duration, start, length);
@@ -183,6 +191,7 @@ export function App({ createTranscoder = createBrowserTranscoder }: AppProps) {
               controls
               playsInline
               onLoadedMetadata={metadataLoaded}
+              onError={mediaFailed}
               onTimeUpdate={stopAtSelectionEnd}
             />
           ) : (
@@ -192,6 +201,7 @@ export function App({ createTranscoder = createBrowserTranscoder }: AppProps) {
               src={previewUrl}
               controls
               onLoadedMetadata={metadataLoaded}
+              onError={mediaFailed}
               onTimeUpdate={stopAtSelectionEnd}
             />
           )

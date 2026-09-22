@@ -186,7 +186,7 @@ h2 { margin: 0; font-size: clamp(1.35rem, 3vw, 1.7rem); letter-spacing: -0.025em
 
 .trim-controls label span { color: var(--muted); font-weight: 650; }
 
-input[type="number"] {
+input[data-time-input] {
   width: 100%;
   min-height: 44px;
   padding: 8px 12px;

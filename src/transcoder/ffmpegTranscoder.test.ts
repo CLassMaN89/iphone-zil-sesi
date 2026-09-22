@@ -1,6 +1,32 @@
-import { describe, expect, it } from "vitest";
-import { FfmpegTranscoder, type FfmpegPort } from "./ffmpegTranscoder";
+import { describe, expect, it, vi } from "vitest";
+import {
+  createBrowserTranscoder,
+  FfmpegTranscoder,
+  type FfmpegPort,
+} from "./ffmpegTranscoder";
 import type { ConversionRequest } from "./types";
+
+const browserRuntime = vi.hoisted(() => ({
+  instances: [] as Array<{ terminated: boolean }>,
+}));
+
+vi.mock("@ffmpeg/ffmpeg", () => ({
+  FFmpeg: class {
+    terminated = false;
+
+    constructor() {
+      browserRuntime.instances.push(this);
+    }
+
+    async load() {
+      throw new Error("core unavailable");
+    }
+
+    terminate() {
+      this.terminated = true;
+    }
+  },
+}));
 
 class FakeFfmpegPort implements FfmpegPort {
   commands: string[][] = [];
@@ -109,5 +135,16 @@ describe("FfmpegTranscoder", () => {
 
     transcoder.dispose();
     expect(port.terminated).toBe(true);
+  });
+});
+
+describe("createBrowserTranscoder", () => {
+  it("terminates the worker when FFmpeg core initialization fails", async () => {
+    browserRuntime.instances.length = 0;
+
+    await expect(createBrowserTranscoder()).rejects.toThrow("core unavailable");
+
+    expect(browserRuntime.instances).toHaveLength(1);
+    expect(browserRuntime.instances[0].terminated).toBe(true);
   });
 });

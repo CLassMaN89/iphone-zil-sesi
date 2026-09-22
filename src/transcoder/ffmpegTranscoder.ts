@@ -147,10 +147,15 @@ export async function createBrowserTranscoder(): Promise<Transcoder> {
     window.location.origin,
   );
 
-  await ffmpeg.load({
-    coreURL: new URL("ffmpeg-core.js", coreBase).href,
-    wasmURL: new URL("ffmpeg-core.wasm", coreBase).href,
-  });
+  try {
+    await ffmpeg.load({
+      coreURL: new URL("ffmpeg-core.js", coreBase).href,
+      wasmURL: new URL("ffmpeg-core.wasm", coreBase).href,
+    });
+  } catch (error) {
+    ffmpeg.terminate();
+    throw error;
+  }
 
   const port: FfmpegPort = {
     writeFile: (path, data) => ffmpeg.writeFile(path, data),

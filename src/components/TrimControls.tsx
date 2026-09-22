@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { formatClock, type TrimSelection } from "../media/trimSelection";
 
 interface TrimControlsProps {
@@ -30,10 +30,30 @@ export function TrimControls({
   onFadeOut,
   onPreview,
 }: TrimControlsProps) {
+  const [startDraft, setStartDraft] = useState(selection.start.toString());
+  const [lengthDraft, setLengthDraft] = useState(selection.length.toString());
   const railStyle = {
     "--selection-start": `${(selection.start / Math.max(duration, 1)) * 100}%`,
     "--selection-width": `${(selection.length / Math.max(duration, 1)) * 100}%`,
   } as CSSProperties;
+
+  useEffect(() => setStartDraft(selection.start.toString()), [selection.start]);
+  useEffect(() => setLengthDraft(selection.length.toString()), [selection.length]);
+
+  function commitDraft(
+    draft: string,
+    fallback: number,
+    commit: (value: number) => void,
+    reset: (value: string) => void,
+  ) {
+    const normalized = draft.trim().replace(",", ".");
+    const parsed = normalized === "" ? Number.NaN : Number(normalized);
+    if (Number.isFinite(parsed)) {
+      commit(parsed);
+    } else {
+      reset(fallback.toString());
+    }
+  }
 
   return (
     <section aria-labelledby="trim-heading" className="trim-controls">
@@ -49,16 +69,15 @@ export function TrimControls({
       <label>
         <span>Başlangıç</span>
         <input
-          type="number"
-          min={0}
-          max={Math.max(0, duration - 1)}
-          step="0.1"
-          value={selection.start}
+          type="text"
+          inputMode="decimal"
+          data-time-input
+          value={startDraft}
           disabled={disabled}
-          onChange={(event) => {
-            if (!Number.isNaN(event.currentTarget.valueAsNumber)) {
-              onStart(event.currentTarget.valueAsNumber);
-            }
+          onChange={(event) => setStartDraft(event.currentTarget.value)}
+          onBlur={() => commitDraft(startDraft, selection.start, onStart, setStartDraft)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") event.currentTarget.blur();
           }}
         />
       </label>
@@ -66,16 +85,15 @@ export function TrimControls({
       <label>
         <span>Süre</span>
         <input
-          type="number"
-          min={1}
-          max={30}
-          step="0.1"
-          value={selection.length}
+          type="text"
+          inputMode="decimal"
+          data-time-input
+          value={lengthDraft}
           disabled={disabled || Boolean(selection.tooShort)}
-          onChange={(event) => {
-            if (!Number.isNaN(event.currentTarget.valueAsNumber)) {
-              onLength(event.currentTarget.valueAsNumber);
-            }
+          onChange={(event) => setLengthDraft(event.currentTarget.value)}
+          onBlur={() => commitDraft(lengthDraft, selection.length, onLength, setLengthDraft)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") event.currentTarget.blur();
           }}
         />
       </label>
