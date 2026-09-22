@@ -48,6 +48,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 function validFile() {
@@ -101,6 +102,59 @@ describe("App", () => {
     );
 
     expect(screen.getByRole("alert")).toHaveTextContent("MP3, M4A, WAV veya MP4 seçin");
+  });
+
+  it("opens the existing editor for a media file imported from a URL", async () => {
+    const user = userEvent.setup();
+    const importedFile = new File([new Uint8Array([1, 2, 3])], "uzak-melodi.mp3", {
+      type: "audio/mpeg",
+    });
+    const importFromUrl = vi.fn(async () => importedFile);
+    render(
+      <App
+        createTranscoder={async () => new RecordingTranscoder()}
+        importFromUrl={importFromUrl}
+      />,
+    );
+
+    await user.type(
+      screen.getByLabelText("Doğrudan medya bağlantısı"),
+      "https://media.example.com/uzak-melodi.mp3",
+    );
+    await user.click(screen.getByRole("button", { name: "Bağlantıdan getir" }));
+    loadMetadata(12);
+
+    expect(importFromUrl).toHaveBeenCalledWith(
+      "https://media.example.com/uzak-melodi.mp3",
+    );
+    expect(screen.getByText("uzak-melodi.mp3")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Zil sesini hazırla" })).toBeEnabled();
+  });
+
+  it("explains how to recover when a linked file cannot be downloaded", async () => {
+    const user = userEvent.setup();
+    const importFromUrl = vi.fn(async () => {
+      throw new Error(
+        "Dosya indirilemedi. Bağlantı herkese açık olmalı ve tarayıcı erişimine izin vermelidir.",
+      );
+    });
+    render(
+      <App
+        createTranscoder={async () => new RecordingTranscoder()}
+        importFromUrl={importFromUrl}
+      />,
+    );
+
+    await user.type(
+      screen.getByLabelText("Doğrudan medya bağlantısı"),
+      "https://media.example.com/blocked.mp3",
+    );
+    await user.click(screen.getByRole("button", { name: "Bağlantıdan getir" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Bağlantı herkese açık olmalı ve tarayıcı erişimine izin vermelidir.",
+    );
+    expect(screen.getByRole("button", { name: "Bağlantıdan getir" })).toBeEnabled();
   });
 
   it("prevents converting media shorter than one second", async () => {

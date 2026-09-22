@@ -4,6 +4,7 @@ import { FilePicker } from "./components/FilePicker";
 import { GarageBandGuide } from "./components/GarageBandGuide";
 import { TrimControls } from "./components/TrimControls";
 import { useObjectUrl } from "./hooks/useObjectUrl";
+import { importMediaUrl } from "./media/importMediaUrl";
 import { safeOutputName, validateMediaFile } from "./media/mediaFile";
 import { normalizeSelection, type TrimSelection } from "./media/trimSelection";
 import { createBrowserTranscoder } from "./transcoder/ffmpegTranscoder";
@@ -32,6 +33,7 @@ type WorkspaceState =
 
 export interface AppProps {
   createTranscoder?: () => Promise<Transcoder>;
+  importFromUrl?: (url: string) => Promise<File>;
 }
 
 function editableFrom(state: WorkspaceState): EditableState | undefined {
@@ -52,8 +54,12 @@ function editableFrom(state: WorkspaceState): EditableState | undefined {
   }
 }
 
-export function App({ createTranscoder = createBrowserTranscoder }: AppProps) {
+export function App({
+  createTranscoder = createBrowserTranscoder,
+  importFromUrl = importMediaUrl,
+}: AppProps) {
   const [state, setState] = useState<WorkspaceState>({ name: "empty" });
+  const [importingUrl, setImportingUrl] = useState(false);
   const [volume, setVolume] = useState(1);
   const [fadeIn, setFadeIn] = useState(true);
   const [fadeOut, setFadeOut] = useState(true);
@@ -76,6 +82,25 @@ export function App({ createTranscoder = createBrowserTranscoder }: AppProps) {
     }
 
     setState({ name: "loading-metadata", file: nextFile });
+  }
+
+  async function chooseUrl(url: string) {
+    setImportingUrl(true);
+    setState({ name: "empty" });
+    try {
+      chooseFile(await importFromUrl(url));
+    } catch (error) {
+      setState({
+        name: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Dosya indirilemedi. Bağlantıyı kontrol edip tekrar deneyin.",
+        recoverable: false,
+      });
+    } finally {
+      setImportingUrl(false);
+    }
   }
 
   function metadataLoaded(event: React.SyntheticEvent<HTMLMediaElement>) {
@@ -165,6 +190,7 @@ export function App({ createTranscoder = createBrowserTranscoder }: AppProps) {
 
   const isVideo = file?.name.toLowerCase().endsWith(".mp4");
   const isConverting = state.name === "converting";
+  const sourceBusy = isConverting || importingUrl;
 
   return (
     <main className="app-shell">
@@ -172,39 +198,47 @@ export function App({ createTranscoder = createBrowserTranscoder }: AppProps) {
         <div className="sound-mark" aria-hidden="true"><span /><span /><span /><span /></div>
         <p className="privacy-note">Dosyan cihazından çıkmaz</p>
         <h1>iPhone zil sesini kendin hazırla</h1>
-        <p>Video veya sesinden en fazla 30 saniyeyi seç. Dosyayı indir, GarageBand ile zil sesi yap.</p>
+        <p>Dosyadan veya doğrudan medya bağlantısından en fazla 30 saniyeyi seç. İndir, GarageBand ile zil sesi yap.</p>
       </header>
 
       <section className="workbench" aria-label="Zil sesi çalışma alanı">
-        <FilePicker onFile={chooseFile} disabled={isConverting} />
+        <FilePicker
+          onFile={chooseFile}
+          onUrl={chooseUrl}
+          importingUrl={importingUrl}
+          disabled={sourceBusy}
+        />
 
         {state.name === "error" && (
           <p role="alert" className="error-message">{state.message}</p>
         )}
 
         {previewUrl && file && (
-          isVideo ? (
-            <video
-              ref={previewRef as React.RefObject<HTMLVideoElement>}
-              data-testid="media-preview"
-              src={previewUrl}
-              controls
-              playsInline
-              onLoadedMetadata={metadataLoaded}
-              onError={mediaFailed}
-              onTimeUpdate={stopAtSelectionEnd}
-            />
-          ) : (
-            <audio
-              ref={previewRef as React.RefObject<HTMLAudioElement>}
-              data-testid="media-preview"
-              src={previewUrl}
-              controls
-              onLoadedMetadata={metadataLoaded}
-              onError={mediaFailed}
-              onTimeUpdate={stopAtSelectionEnd}
-            />
-          )
+          <div className="media-preview">
+            <p>Seçilen medya: <strong>{file.name}</strong></p>
+            {isVideo ? (
+              <video
+                ref={previewRef as React.RefObject<HTMLVideoElement>}
+                data-testid="media-preview"
+                src={previewUrl}
+                controls
+                playsInline
+                onLoadedMetadata={metadataLoaded}
+                onError={mediaFailed}
+                onTimeUpdate={stopAtSelectionEnd}
+              />
+            ) : (
+              <audio
+                ref={previewRef as React.RefObject<HTMLAudioElement>}
+                data-testid="media-preview"
+                src={previewUrl}
+                controls
+                onLoadedMetadata={metadataLoaded}
+                onError={mediaFailed}
+                onTimeUpdate={stopAtSelectionEnd}
+              />
+            )}
+          </div>
         )}
 
         {editable && (

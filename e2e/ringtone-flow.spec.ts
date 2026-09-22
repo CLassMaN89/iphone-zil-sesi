@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 
 const tonePath = path.join(process.cwd(), "e2e", "fixtures", "tone.wav");
@@ -14,6 +15,27 @@ test("commits a decimal duration after keyboard editing", async ({ page }) => {
   await duration.press("Tab");
 
   await expect(duration).toHaveValue("1.5");
+});
+
+test("opens the editor for a direct media URL", async ({ page }) => {
+  const tone = await readFile(tonePath);
+  await page.route("https://media.example.com/tone.wav", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "audio/wav",
+      headers: { "access-control-allow-origin": "*" },
+      body: tone,
+    });
+  });
+
+  await page.goto("/iphone-zil-sesi/");
+  await page
+    .getByLabel("Doğrudan medya bağlantısı")
+    .fill("https://media.example.com/tone.wav");
+  await page.getByRole("button", { name: "Bağlantıdan getir" }).click();
+
+  await expect(page.getByText("tone.wav", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Zil sesini hazırla" })).toBeEnabled();
 });
 
 test("creates a downloadable ringtone from a local WAV", async ({ page }) => {

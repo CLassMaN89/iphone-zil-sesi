@@ -7,6 +7,7 @@ Canlı uygulama: [classman89.github.io/iphone-zil-sesi](https://classman89.githu
 ## Neler yapar?
 
 - MP3, M4A, WAV ve MP4 dosyalarını kabul eder.
+- Herkese açık doğrudan MP3, M4A, WAV veya MP4 bağlantılarını tarayıcıda indirir.
 - Başlangıç ve süreyi 1–30 saniye aralığında ayarlar.
 - Ses seviyesini değiştirir; yumuşak başlangıç ve bitiş ekler.
 - Önce M4A/AAC, desteklenmezse WAV çıktısı üretir.
@@ -15,11 +16,11 @@ Canlı uygulama: [classman89.github.io/iphone-zil-sesi](https://classman89.githu
 
 ## Gizlilik
 
-Seçtiğiniz medya dosyası uygulama sunucusuna gönderilmez. Dönüştürme işlemi tarayıcıdaki WebAssembly FFmpeg çekirdeğinde gerçekleşir. Uygulama hesap, veritabanı, analiz veya bulut depolama kullanmaz.
+Seçtiğiniz veya doğrudan bağlantıdan aldığınız medya uygulama sunucusuna gönderilmez. İndirme ve dönüştürme işlemleri tarayıcınızda gerçekleşir. Uygulama hesap, veritabanı, analiz veya bulut depolama kullanmaz.
 
 ## iPhone'da kullanım
 
-1. Safari'de uygulamayı açın ve cihazınızdaki MP3, M4A, WAV veya MP4 dosyasını seçin.
+1. Safari'de uygulamayı açın; doğrudan medya bağlantısı girin veya cihazınızdaki MP3, M4A, WAV ya da MP4 dosyasını seçin.
 2. Kullanmak istediğiniz başlangıcı ve en fazla 30 saniyelik süreyi ayarlayın.
 3. **Zil sesini hazırla** ve ardından **Ses dosyasını indir** seçeneklerini kullanın.
 4. Dosyayı Dosyalar uygulamasına kaydedin.
@@ -33,7 +34,8 @@ Apple'ın resmi adımları: [iPhone'da özel zil sesi oluşturma](https://suppor
 - En büyük dosya boyutu 200 MB'dir. Uzun veya büyük videolar özellikle eski iPhone modellerinde tarayıcı belleğini zorlayabilir.
 - Web sitesi zil sesini iOS Ayarlar'a doğrudan kuramaz; son dışa aktarım GarageBand'de yapılır.
 - DRM korumalı Apple Music parçaları desteklenmez.
-- YouTube ve diğer platformlardan bağlantı ile video indirilmez. Yalnızca kullanma hakkınız olan yerel dosyaları seçin.
+- Bağlantı `https://` ile başlamalı, doğrudan medya dosyasına gitmeli ve kaynak sunucu tarayıcı erişimine (CORS) izin vermelidir.
+- YouTube sayfa bağlantıları desteklenmez. YouTube, ses/video indirilmesine resmî API üzerinden izin vermediğinden yalnızca kullanma hakkınız olan doğrudan medya bağlantılarını veya yerel dosyaları kullanın.
 - İlk FFmpeg yüklemesi yaklaşık 30 MB olduğundan ilk dönüşüm bağlantı hızına göre biraz sürebilir; sonraki ziyaretlerde tarayıcı önbelleği yardımcı olur.
 
 ## Yerel geliştirme
