@@ -46,6 +46,16 @@ export async function importMediaUrl(
     throw new MediaUrlError("Bağlantı https:// ile başlamalıdır.");
   }
 
+  if (
+    url.hostname === "youtu.be" ||
+    url.hostname === "youtube.com" ||
+    url.hostname.endsWith(".youtube.com")
+  ) {
+    throw new MediaUrlError(
+      "YouTube bağlantıları indirilemez. Videoyu YouTube Studio’dan indirip dosya olarak yükleyin.",
+    );
+  }
+
   try {
     const response = await fetcher(url.href, {
       credentials: "omit",

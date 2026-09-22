@@ -6,6 +6,7 @@ const tonePath = path.join(process.cwd(), "e2e", "fixtures", "tone.wav");
 
 test("commits a decimal duration after keyboard editing", async ({ page }) => {
   await page.goto("/iphone-zil-sesi/");
+  await page.getByRole("tab", { name: "Ses yükle" }).click();
   await page.getByLabel("Video veya ses dosyası seç").setInputFiles(tonePath);
 
   const duration = page.getByLabel("Süre");
@@ -29,6 +30,7 @@ test("opens the editor for a direct media URL", async ({ page }) => {
   });
 
   await page.goto("/iphone-zil-sesi/");
+  await page.getByRole("tab", { name: "Doğrudan bağlantı" }).click();
   await page
     .getByLabel("Doğrudan medya bağlantısı")
     .fill("https://media.example.com/tone.wav");
@@ -45,6 +47,7 @@ test("creates a downloadable ringtone from a local WAV", async ({ page }) => {
   });
 
   await page.goto("/iphone-zil-sesi/");
+  await page.getByRole("tab", { name: "Ses yükle" }).click();
   await page
     .getByLabel("Video veya ses dosyası seç")
     .setInputFiles(tonePath);

@@ -96,6 +96,7 @@ describe("App", () => {
     const user = userEvent.setup();
     render(<App createTranscoder={async () => new RecordingTranscoder()} />);
 
+    await user.click(screen.getByRole("tab", { name: "Ses yükle" }));
     await user.upload(
       screen.getByLabelText("Video veya ses dosyası seç"),
       new File(["nope"], "uygulama.exe", { type: "audio/mpeg" }),
@@ -117,6 +118,7 @@ describe("App", () => {
       />,
     );
 
+    await user.click(screen.getByRole("tab", { name: "Doğrudan bağlantı" }));
     await user.type(
       screen.getByLabelText("Doğrudan medya bağlantısı"),
       "https://media.example.com/uzak-melodi.mp3",
@@ -145,6 +147,7 @@ describe("App", () => {
       />,
     );
 
+    await user.click(screen.getByRole("tab", { name: "Doğrudan bağlantı" }));
     await user.type(
       screen.getByLabelText("Doğrudan medya bağlantısı"),
       "https://media.example.com/blocked.mp3",
@@ -171,6 +174,7 @@ describe("App", () => {
     const user = userEvent.setup();
     render(<App createTranscoder={async () => new RecordingTranscoder()} />);
 
+    await user.click(screen.getByRole("tab", { name: "Ses yükle" }));
     await user.upload(
       screen.getByLabelText("Video veya ses dosyası seç"),
       new File(["not audio"], "bozuk.mp3", { type: "audio/mpeg" }),

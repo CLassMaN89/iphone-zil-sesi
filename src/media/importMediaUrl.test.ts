@@ -36,6 +36,17 @@ describe("importMediaUrl", () => {
     expect(fetcher).not.toHaveBeenCalled();
   });
 
+  it("explains that YouTube watch links are not direct media", async () => {
+    const fetcher = vi.fn();
+
+    await expect(
+      importMediaUrl("https://www.youtube.com/watch?v=cm_tiqyoJ9k", fetcher),
+    ).rejects.toThrow(
+      "YouTube bağlantıları indirilemez. Videoyu YouTube Studio’dan indirip dosya olarak yükleyin.",
+    );
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
   it("rejects a response whose declared size exceeds 200 MB", async () => {
     const fetcher = vi.fn(async () =>
       new Response(null, {

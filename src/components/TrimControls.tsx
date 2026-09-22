@@ -1,6 +1,12 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { formatClock, type TrimSelection } from "../media/trimSelection";
 
+const waveformBars = [
+  22, 40, 28, 54, 36, 66, 44, 74, 34, 58, 82, 48, 70, 42, 62, 88,
+  52, 76, 45, 68, 92, 58, 80, 50, 72, 42, 64, 38, 56, 32, 48, 28,
+  42, 24, 36, 20, 32, 18, 28, 16, 24, 14, 20, 12, 18, 10, 16, 8,
+];
+
 interface TrimControlsProps {
   duration: number;
   selection: TrimSelection;
@@ -56,49 +62,72 @@ export function TrimControls({
   }
 
   return (
-    <section aria-labelledby="trim-heading" className="trim-controls">
+    <section aria-labelledby="trim-heading" className="trim-controls glass-inset">
       <div className="section-heading">
         <h2 id="trim-heading">Kullanacağın bölümü seç</h2>
         <output>{formatClock(selection.start)} – {formatClock(selection.end)}</output>
+      </div>
+
+      <div className="waveform-player">
+        <button
+          type="button"
+          className="play-selection"
+          onClick={onPreview}
+          disabled={disabled}
+          aria-label="Seçimi dinle"
+        >
+          <span aria-hidden="true">▶</span>
+        </button>
+        <div className="waveform" aria-hidden="true">
+          {waveformBars.map((height, index) => (
+            <span
+              key={`${height}-${index}`}
+              className={index < 27 ? "is-selected" : undefined}
+              style={{ height: `${height}%` }}
+            />
+          ))}
+        </div>
       </div>
 
       <div className="timeline-rail" style={railStyle} aria-hidden="true">
         <span />
       </div>
 
-      <label>
-        <span>Başlangıç</span>
-        <input
-          type="text"
-          inputMode="decimal"
-          data-time-input
-          value={startDraft}
-          disabled={disabled}
-          onChange={(event) => setStartDraft(event.currentTarget.value)}
-          onBlur={() => commitDraft(startDraft, selection.start, onStart, setStartDraft)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") event.currentTarget.blur();
-          }}
-        />
-      </label>
+      <div className="time-controls">
+        <label>
+          <span>Başlangıç</span>
+          <input
+            type="text"
+            inputMode="decimal"
+            data-time-input
+            value={startDraft}
+            disabled={disabled}
+            onChange={(event) => setStartDraft(event.currentTarget.value)}
+            onBlur={() => commitDraft(startDraft, selection.start, onStart, setStartDraft)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") event.currentTarget.blur();
+            }}
+          />
+        </label>
 
-      <label>
-        <span>Süre</span>
-        <input
-          type="text"
-          inputMode="decimal"
-          data-time-input
-          value={lengthDraft}
-          disabled={disabled || Boolean(selection.tooShort)}
-          onChange={(event) => setLengthDraft(event.currentTarget.value)}
-          onBlur={() => commitDraft(lengthDraft, selection.length, onLength, setLengthDraft)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") event.currentTarget.blur();
-          }}
-        />
-      </label>
+        <label>
+          <span>Süre</span>
+          <input
+            type="text"
+            inputMode="decimal"
+            data-time-input
+            value={lengthDraft}
+            disabled={disabled || Boolean(selection.tooShort)}
+            onChange={(event) => setLengthDraft(event.currentTarget.value)}
+            onBlur={() => commitDraft(lengthDraft, selection.length, onLength, setLengthDraft)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") event.currentTarget.blur();
+            }}
+          />
+        </label>
+      </div>
 
-      <label>
+      <label className="volume-control">
         <span>Ses seviyesi: %{Math.round(volume * 100)}</span>
         <input
           type="range"
@@ -132,9 +161,6 @@ export function TrimControls({
         </label>
       </div>
 
-      <button type="button" className="secondary-action" onClick={onPreview} disabled={disabled}>
-        Seçimi dinle
-      </button>
     </section>
   );
 }
