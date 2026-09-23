@@ -1,8 +1,17 @@
 import { useState } from "react";
+import type { PersonalMediaClient } from "../personal/personalMediaClient";
+import type { PersonalServerConfig } from "../personal/types";
+import { PersonalServerSettings } from "./PersonalServerSettings";
+import { YouTubeImportPanel } from "./YouTubeImportPanel";
 
 interface FilePickerProps {
   onFile: (file: File) => void;
-  onUrl: (url: string) => Promise<void>;
+  onDirectUrl: (url: string) => Promise<void>;
+  personalConfig?: PersonalServerConfig;
+  personalStatus: "checking" | "connected" | "offline";
+  personalClient?: PersonalMediaClient;
+  onSavePersonal: (config: PersonalServerConfig) => void;
+  onClearPersonal: () => void;
   importingUrl?: boolean;
   disabled?: boolean;
 }
@@ -12,16 +21,22 @@ type SourceMode = "video" | "audio" | "url";
 const sourceOptions: Array<{ mode: SourceMode; label: string; icon: string }> = [
   { mode: "video", label: "Video yükle", icon: "▰" },
   { mode: "audio", label: "Ses yükle", icon: "♫" },
-  { mode: "url", label: "Doğrudan bağlantı", icon: "↗" },
+  { mode: "url", label: "Bağlantı", icon: "↗" },
 ];
 
 export function FilePicker({
   onFile,
-  onUrl,
+  onDirectUrl,
+  personalConfig,
+  personalStatus,
+  personalClient,
+  onSavePersonal,
+  onClearPersonal,
   importingUrl = false,
   disabled = false,
 }: FilePickerProps) {
   const [mode, setMode] = useState<SourceMode>("video");
+  const [linkMode, setLinkMode] = useState<"youtube" | "direct">("youtube");
   const [url, setUrl] = useState("");
   const isVideo = mode === "video";
   const accept = isVideo
@@ -48,31 +63,68 @@ export function FilePicker({
       </div>
 
       {mode === "url" ? (
-        <form
-          className="url-picker glass-inset"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (url.trim()) void onUrl(url);
-          }}
-        >
-          <div className="link-orb" aria-hidden="true">↗</div>
-          <label htmlFor="media-url">Doğrudan medya bağlantısı</label>
-          <div className="url-picker-row">
-            <input
-              id="media-url"
-              type="url"
-              inputMode="url"
-              placeholder="https://site.com/ses.mp3"
-              value={url}
-              disabled={disabled}
-              onChange={(event) => setUrl(event.currentTarget.value)}
-            />
-            <button type="submit" disabled={disabled || !url.trim()}>
-              {importingUrl ? "Dosya alınıyor…" : "Bağlantıdan getir"}
+        <div className="link-picker">
+          <div className="link-mode-switch" aria-label="Bağlantı türü">
+            <button
+              type="button"
+              className={linkMode === "youtube" ? "is-active" : ""}
+              aria-pressed={linkMode === "youtube"}
+              onClick={() => setLinkMode("youtube")}
+            >
+              YouTube
+            </button>
+            <button
+              type="button"
+              className={linkMode === "direct" ? "is-active" : ""}
+              aria-pressed={linkMode === "direct"}
+              onClick={() => setLinkMode("direct")}
+            >
+              Doğrudan dosya
             </button>
           </div>
-          <p>Herkese açık doğrudan MP3, M4A, WAV veya MP4 bağlantısı kullanın.</p>
-        </form>
+          {linkMode === "youtube" ? (
+            <div className="youtube-source-stack">
+              <PersonalServerSettings
+                config={personalConfig}
+                status={personalStatus}
+                onSave={onSavePersonal}
+                onClear={onClearPersonal}
+              />
+              {personalStatus === "connected" && personalClient && (
+                <YouTubeImportPanel
+                  client={personalClient}
+                  onRingtoneSource={onFile}
+                />
+              )}
+            </div>
+          ) : (
+            <form
+              className="url-picker glass-inset"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (url.trim()) void onDirectUrl(url);
+              }}
+            >
+              <div className="link-orb" aria-hidden="true">↗</div>
+              <label htmlFor="media-url">Doğrudan medya bağlantısı</label>
+              <div className="url-picker-row">
+                <input
+                  id="media-url"
+                  type="url"
+                  inputMode="url"
+                  placeholder="https://site.com/ses.mp3"
+                  value={url}
+                  disabled={disabled}
+                  onChange={(event) => setUrl(event.currentTarget.value)}
+                />
+                <button type="submit" disabled={disabled || !url.trim()}>
+                  {importingUrl ? "Dosya alınıyor…" : "Bağlantıdan getir"}
+                </button>
+              </div>
+              <p>Herkese açık doğrudan MP3, M4A, WAV veya MP4 bağlantısı kullanın.</p>
+            </form>
+          )}
+        </div>
       ) : (
         <label
           className="file-drop-zone glass-inset"

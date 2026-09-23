@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
+import { savePersonalServer } from "./personal/personalServerStorage";
 import type {
   ConversionRequest,
   ConversionResult,
@@ -39,6 +40,7 @@ let createObjectURL: ReturnType<typeof vi.fn>;
 let revokeObjectURL: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
+  localStorage.clear();
   nextObjectUrl = 1;
   createObjectURL = vi.fn(() => `blob:test-${nextObjectUrl++}`);
   revokeObjectURL = vi.fn();
@@ -55,15 +57,15 @@ function validFile() {
   return new File([new Uint8Array([1, 2, 3])], "melodi.mp4", { type: "video/mp4" });
 }
 
-function loadMetadata(duration: number) {
-  const preview = screen.getByTestId("media-preview");
+async function loadMetadata(duration: number) {
+  const preview = await screen.findByTestId("media-preview");
   Object.defineProperty(preview, "duration", { configurable: true, value: duration });
   fireEvent.loadedMetadata(preview);
 }
 
 async function loadEditor(user: ReturnType<typeof userEvent.setup>, duration = 45) {
   await user.upload(screen.getByLabelText("Video veya ses dosyası seç"), validFile());
-  loadMetadata(duration);
+  await loadMetadata(duration);
 }
 
 describe("App", () => {
@@ -118,13 +120,14 @@ describe("App", () => {
       />,
     );
 
-    await user.click(screen.getByRole("tab", { name: "Doğrudan bağlantı" }));
+    await user.click(screen.getByRole("tab", { name: "Bağlantı" }));
+    await user.click(screen.getByRole("button", { name: "Doğrudan dosya" }));
     await user.type(
       screen.getByLabelText("Doğrudan medya bağlantısı"),
       "https://media.example.com/uzak-melodi.mp3",
     );
     await user.click(screen.getByRole("button", { name: "Bağlantıdan getir" }));
-    loadMetadata(12);
+    await loadMetadata(12);
 
     expect(importFromUrl).toHaveBeenCalledWith(
       "https://media.example.com/uzak-melodi.mp3",
@@ -147,7 +150,8 @@ describe("App", () => {
       />,
     );
 
-    await user.click(screen.getByRole("tab", { name: "Doğrudan bağlantı" }));
+    await user.click(screen.getByRole("tab", { name: "Bağlantı" }));
+    await user.click(screen.getByRole("button", { name: "Doğrudan dosya" }));
     await user.type(
       screen.getByLabelText("Doğrudan medya bağlantısı"),
       "https://media.example.com/blocked.mp3",
@@ -261,5 +265,39 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Zil sesini yeniden hazırla" }));
     await waitFor(() => expect(revokeObjectURL).toHaveBeenCalledWith("blob:test-2"));
     expect(createObjectURL).toHaveBeenCalledTimes(3);
+  });
+
+  it("keeps an open editor when a saved personal server token is stale", async () => {
+    const user = userEvent.setup();
+    savePersonalServer({
+      baseUrl: "https://quiet-space-8787.app.github.dev",
+      token: "stale-token",
+    });
+    let finishHealth!: (response: Response) => void;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        () =>
+          new Promise<Response>((resolve) => {
+            finishHealth = resolve;
+          }),
+      ),
+    );
+    render(<App createTranscoder={async () => new RecordingTranscoder()} />);
+
+    await loadEditor(user);
+    finishHealth(
+      new Response(
+        JSON.stringify({
+          error: { code: "UNAUTHORIZED", message: "stale" },
+        }),
+        { status: 401 },
+      ),
+    );
+    await user.click(screen.getByRole("tab", { name: "Bağlantı" }));
+
+    expect(await screen.findByText("Kişisel sunucu kapalı")).toBeVisible();
+    expect(screen.getByText("melodi.mp4")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Zil sesini hazırla" })).toBeEnabled();
   });
 });

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ConversionResult } from "./components/ConversionResult";
 import { FilePicker } from "./components/FilePicker";
 import { GarageBandGuide } from "./components/GarageBandGuide";
@@ -7,6 +7,16 @@ import { useObjectUrl } from "./hooks/useObjectUrl";
 import { importMediaUrl } from "./media/importMediaUrl";
 import { safeOutputName, validateMediaFile } from "./media/mediaFile";
 import { normalizeSelection, type TrimSelection } from "./media/trimSelection";
+import {
+  createPersonalMediaClient,
+  type PersonalMediaClient,
+} from "./personal/personalMediaClient";
+import {
+  clearPersonalServer,
+  loadPersonalServer,
+  savePersonalServer,
+} from "./personal/personalServerStorage";
+import type { PersonalServerConfig } from "./personal/types";
 import { createBrowserTranscoder } from "./transcoder/ffmpegTranscoder";
 import type {
   ConversionResult as CompletedConversion,
@@ -34,6 +44,7 @@ type WorkspaceState =
 export interface AppProps {
   createTranscoder?: () => Promise<Transcoder>;
   importFromUrl?: (url: string) => Promise<File>;
+  createPersonalClient?: (config: PersonalServerConfig) => PersonalMediaClient;
 }
 
 function editableFrom(state: WorkspaceState): EditableState | undefined {
@@ -57,9 +68,16 @@ function editableFrom(state: WorkspaceState): EditableState | undefined {
 export function App({
   createTranscoder = createBrowserTranscoder,
   importFromUrl = importMediaUrl,
+  createPersonalClient = createPersonalMediaClient,
 }: AppProps) {
   const [state, setState] = useState<WorkspaceState>({ name: "empty" });
   const [importingUrl, setImportingUrl] = useState(false);
+  const [personalConfig, setPersonalConfig] = useState<PersonalServerConfig | undefined>(
+    () => loadPersonalServer(),
+  );
+  const [personalStatus, setPersonalStatus] = useState<
+    "checking" | "connected" | "offline"
+  >(personalConfig ? "checking" : "offline");
   const [volume, setVolume] = useState(1);
   const [fadeIn, setFadeIn] = useState(true);
   const [fadeOut, setFadeOut] = useState(true);
@@ -69,6 +87,41 @@ export function App({
   const completedResult = state.name === "complete" ? state.result : undefined;
   const downloadUrl = useObjectUrl(completedResult?.blob);
   const editable = editableFrom(state);
+  const personalClient = useMemo(
+    () => (personalConfig ? createPersonalClient(personalConfig) : undefined),
+    [createPersonalClient, personalConfig],
+  );
+
+  useEffect(() => {
+    if (!personalClient) {
+      setPersonalStatus("offline");
+      return;
+    }
+    let current = true;
+    setPersonalStatus("checking");
+    void personalClient
+      .health()
+      .then((healthy) => {
+        if (current) setPersonalStatus(healthy ? "connected" : "offline");
+      })
+      .catch(() => {
+        if (current) setPersonalStatus("offline");
+      });
+    return () => {
+      current = false;
+    };
+  }, [personalClient]);
+
+  function savePersonal(config: PersonalServerConfig) {
+    savePersonalServer(config);
+    setPersonalConfig(loadPersonalServer());
+  }
+
+  function clearPersonal() {
+    clearPersonalServer();
+    setPersonalConfig(undefined);
+    setPersonalStatus("offline");
+  }
 
   function chooseFile(nextFile: File) {
     const validation = validateMediaFile(nextFile);
@@ -196,7 +249,7 @@ export function App({
     <main className="app-shell">
       <header className="hero">
         <div className="sound-mark" aria-hidden="true"><span /><span /><span /><span /></div>
-        <p className="privacy-note">Dosyan cihazından çıkmaz</p>
+        <p className="privacy-note">Yerel dosyan cihazından çıkmaz</p>
         <h1>iPhone zil sesini kendin hazırla</h1>
         <p>Dosyadan veya doğrudan medya bağlantısından en fazla 30 saniyeyi seç. İndir, GarageBand ile zil sesi yap.</p>
       </header>
@@ -204,7 +257,12 @@ export function App({
       <section className="workbench" aria-label="Zil sesi çalışma alanı">
         <FilePicker
           onFile={chooseFile}
-          onUrl={chooseUrl}
+          onDirectUrl={chooseUrl}
+          personalConfig={personalConfig}
+          personalStatus={personalStatus}
+          personalClient={personalClient}
+          onSavePersonal={savePersonal}
+          onClearPersonal={clearPersonal}
           importingUrl={importingUrl}
           disabled={sourceBusy}
         />
