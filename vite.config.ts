@@ -5,7 +5,7 @@ export default defineConfig({
   base: "/iphone-zil-sesi/",
   plugins: [react()],
   test: {
-    include: ["src/**/*.test.{ts,tsx}"],
+    include: ["src/**/*.test.{ts,tsx}", "server/**/*.test.ts"],
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
     css: true,
