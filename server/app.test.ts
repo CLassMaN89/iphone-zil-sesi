@@ -3,7 +3,7 @@ import type { Response } from "express";
 import request from "supertest";
 import { describe, expect, it, vi } from "vitest";
 import { createPersonalServerApp } from "./app.js";
-import { installShutdownHandlers } from "./index.js";
+import { installShutdownHandlers, resolvePublicUrl } from "./index.js";
 
 const origin = "https://classman89.github.io";
 const auth = { Authorization: "Bearer test-token", Origin: origin };
@@ -78,6 +78,9 @@ describe("personal server API", () => {
     expect(response.status).toBe(200);
     expect(response.body).toMatchObject({ id: "abc123", durationSeconds: 90 });
     expect(response.headers["access-control-allow-origin"]).toBe(origin);
+    expect(response.headers["access-control-expose-headers"]).toContain(
+      "Content-Disposition",
+    );
     expect(tool.inspect).toHaveBeenCalledWith(
       "https://www.youtube.com/watch?v=abc123",
     );
@@ -182,6 +185,16 @@ describe("personal server API", () => {
 });
 
 describe("personal server lifecycle", () => {
+  it("uses an unambiguous IPv4 URL outside Codespaces", () => {
+    expect(resolvePublicUrl({})).toBe("http://127.0.0.1:8787");
+    expect(
+      resolvePublicUrl({
+        CODESPACE_NAME: "quiet-space",
+        GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN: "app.github.dev",
+      }),
+    ).toBe("https://quiet-space-8787.app.github.dev");
+  });
+
   it("awaits media shutdown before exiting on a process signal", async () => {
     const order: string[] = [];
     let releaseShutdown!: () => void;

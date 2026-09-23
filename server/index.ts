@@ -38,12 +38,12 @@ export function installShutdownHandlers(options: ShutdownOptions): void {
   once("SIGTERM", () => void shutdown());
 }
 
-function codespacesUrl(environment: NodeJS.ProcessEnv): string {
+export function resolvePublicUrl(environment: NodeJS.ProcessEnv): string {
   const name = environment.CODESPACE_NAME;
   const domain = environment.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN;
   return name && domain
     ? `https://${name}-8787.${domain}`
-    : "http://localhost:8787";
+    : "http://127.0.0.1:8787";
 }
 
 export async function startPersonalServer(): Promise<Server> {
@@ -55,7 +55,7 @@ export async function startPersonalServer(): Promise<Server> {
   });
 
   console.log("Kişisel sunucu hazır");
-  console.log(`Adres: ${codespacesUrl(process.env)}`);
+  console.log(`Adres: ${resolvePublicUrl(process.env)}`);
   console.log(`Eşleştirme kodu: ${token}`);
   installShutdownHandlers({ server, mediaTool });
   return server;

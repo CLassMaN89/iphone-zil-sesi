@@ -98,6 +98,10 @@ export function createPersonalServerApp(options: PersonalServerOptions) {
     res.setHeader("Vary", "Origin");
     res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.setHeader(
+      "Access-Control-Expose-Headers",
+      "Content-Disposition, Content-Type, Content-Length",
+    );
     if (req.method === "OPTIONS") {
       res.status(204).end();
       return;

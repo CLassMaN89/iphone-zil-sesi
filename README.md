@@ -76,7 +76,7 @@ npx playwright install chromium
 npm run e2e
 ```
 
-Birim ve bileşen testleri doğrulama, zaman seçimi, FFmpeg komutları, hata kurtarma ve URL temizliğini kapsar. Playwright testi gerçek FFmpeg çekirdeğiyle kısa bir WAV dosyasını dönüştürür ve indirir.
+Birim, bileşen ve sunucu testleri doğrulama, token/CORS sınırı, geçici dosya temizliği, zaman seçimi, FFmpeg komutları, hata kurtarma ve URL temizliğini kapsar. Playwright testleri gerçek FFmpeg çekirdeğiyle kısa bir WAV dosyasını dönüştürür; kişisel sunucu akışını ise sahte ve ağdan bağımsız API yanıtlarıyla sınar. Testler gerçek YouTube veya `yt-dlp` çağrısı yapmaz.
 
 ## Dağıtım
 
