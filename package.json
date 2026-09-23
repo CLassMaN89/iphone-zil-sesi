@@ -9,6 +9,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
+    "personal-server": "tsx server/index.ts",
+    "typecheck:server": "tsc -p tsconfig.server.json",
     "test": "vitest",
     "test:run": "vitest run",
     "e2e": "playwright test"
