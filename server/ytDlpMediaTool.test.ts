@@ -33,6 +33,8 @@ describe("ytDlpMediaTool", () => {
         "--dump-single-json",
         "--skip-download",
         "--no-playlist",
+        "--js-runtimes",
+        "node",
       ]),
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
@@ -81,6 +83,8 @@ describe("ytDlpMediaTool", () => {
       ),
     ).toEqual([
       "--no-playlist",
+      "--js-runtimes",
+      "node",
       "--max-filesize",
       "200M",
       "-x",
@@ -194,6 +198,53 @@ describe("ytDlpMediaTool", () => {
     const preparation = tool.prepare("https://youtu.be/abc123", "mp3");
     await started;
     await tool.shutdown();
+
+    await expect(preparation).rejects.toMatchObject({ code: "CONVERSION_FAILED" });
+    expect(files.rm).toHaveBeenCalledTimes(1);
+  });
+
+  it("aborts preparation and removes its directory when the caller disconnects", async () => {
+    const files = fakeFiles();
+    let downloadSignal: AbortSignal | undefined;
+    let downloadStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      downloadStarted = resolve;
+    });
+    const run = vi
+      .fn()
+      .mockResolvedValueOnce({ stdout: metadata, stderr: "" })
+      .mockImplementationOnce(
+        async (
+          _command: string,
+          _args: readonly string[],
+          options: { signal: AbortSignal },
+        ) => {
+          downloadSignal = options.signal;
+          downloadStarted();
+          await new Promise<void>((_resolve, reject) => {
+            options.signal.addEventListener("abort", () =>
+              reject(Object.assign(new Error("aborted"), { name: "AbortError" })),
+            );
+          });
+          return { stdout: "", stderr: "" };
+        },
+      );
+    const tool = createYtDlpMediaTool({ run, files });
+    const caller = new AbortController();
+    const preparation = tool.prepare(
+      "https://youtu.be/abc123",
+      "mp3",
+      caller.signal,
+    );
+    void preparation.catch(() => undefined);
+    await started;
+
+    caller.abort();
+    try {
+      await vi.waitFor(() => expect(downloadSignal?.aborted).toBe(true));
+    } finally {
+      await tool.shutdown();
+    }
 
     await expect(preparation).rejects.toMatchObject({ code: "CONVERSION_FAILED" });
     expect(files.rm).toHaveBeenCalledTimes(1);

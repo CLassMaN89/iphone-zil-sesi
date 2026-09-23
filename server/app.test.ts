@@ -1,5 +1,6 @@
 // @vitest-environment node
 import type { Response } from "express";
+import { request as makeHttpRequest } from "node:http";
 import request from "supertest";
 import { describe, expect, it, vi } from "vitest";
 import { createPersonalServerApp } from "./app.js";
@@ -16,7 +17,11 @@ function fakeTool() {
       durationSeconds: 90,
       thumbnailUrl: "https://i.ytimg.com/x.jpg",
     })),
-    prepare: vi.fn(async () => ({
+    prepare: vi.fn(async (
+      _url: string,
+      _format: string,
+      _signal?: AbortSignal,
+    ) => ({
       path: "C:/tmp/test.mp3",
       fileName: "test.mp3",
       mimeType: "audio/mpeg",
@@ -181,6 +186,62 @@ describe("personal server API", () => {
 
     expect(next.status).toBe(200);
     expect(cleanup).toHaveBeenCalledTimes(2);
+  });
+
+  it("cancels media preparation when the client disconnects early", async () => {
+    let preparationSignal: AbortSignal | undefined;
+    let rejectPreparation!: (error: Error) => void;
+    let preparationStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      preparationStarted = resolve;
+    });
+    const tool = fakeTool();
+    tool.prepare = vi.fn(
+      async (_url: string, _format: string, signal?: AbortSignal) =>
+        new Promise<never>((_resolve, reject) => {
+          preparationSignal = signal;
+          rejectPreparation = reject;
+          signal?.addEventListener("abort", () => reject(new Error("aborted")), {
+            once: true,
+          });
+          preparationStarted();
+        }),
+    );
+    const app = createPersonalServerApp({
+      token: "test-token",
+      mediaTool: tool,
+      sendFile: vi.fn(),
+    });
+    const server = app.listen(0, "127.0.0.1");
+    await new Promise<void>((resolve) => server.once("listening", resolve));
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("port unavailable");
+    const body = JSON.stringify({ url: "https://youtu.be/abc123", format: "mp3" });
+    const clientRequest = makeHttpRequest({
+      host: "127.0.0.1",
+      port: address.port,
+      path: "/api/youtube/download",
+      method: "POST",
+      headers: {
+        ...auth,
+        "Content-Type": "application/json",
+        "Content-Length": Buffer.byteLength(body),
+      },
+    });
+    clientRequest.on("error", () => undefined);
+    clientRequest.end(body);
+    await started;
+
+    clientRequest.destroy();
+    try {
+      await vi.waitFor(() => {
+        expect(preparationSignal).toBeInstanceOf(AbortSignal);
+        expect(preparationSignal?.aborted).toBe(true);
+      });
+    } finally {
+      rejectPreparation(new Error("test cleanup"));
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
   });
 });
 

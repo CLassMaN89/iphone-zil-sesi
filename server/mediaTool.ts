@@ -16,7 +16,11 @@ export interface PreparedDownload {
 }
 
 export interface MediaTool {
-  inspect(url: string): Promise<VideoInfo>;
-  prepare(url: string, format: DownloadFormat): Promise<PreparedDownload>;
+  inspect(url: string, signal?: AbortSignal): Promise<VideoInfo>;
+  prepare(
+    url: string,
+    format: DownloadFormat,
+    signal?: AbortSignal,
+  ): Promise<PreparedDownload>;
   shutdown(): Promise<void>;
 }

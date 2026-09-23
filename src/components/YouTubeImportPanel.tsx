@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useObjectUrl } from "../hooks/useObjectUrl";
 import type { PersonalMediaClient } from "../personal/personalMediaClient";
 import {
@@ -39,13 +39,15 @@ interface DownloadedFile {
 type PanelState =
   | { status: "idle" }
   | { status: "inspecting" }
-  | { status: "ready"; video: YouTubeVideo; downloaded?: DownloadedFile }
-  | { status: "downloading"; video: YouTubeVideo; format: DownloadFormat }
-  | { status: "error"; message: string; video?: YouTubeVideo };
+  | { status: "ready"; video: YouTubeVideo; sourceUrl: string; downloaded?: DownloadedFile }
+  | { status: "downloading"; video: YouTubeVideo; sourceUrl: string; format: DownloadFormat }
+  | { status: "error"; message: string; video?: YouTubeVideo; sourceUrl?: string };
 
 export interface YouTubeImportPanelProps {
   client: PersonalMediaClient;
   onRingtoneSource(file: File): void;
+  onConnectionLost?(): void;
+  disabled?: boolean;
 }
 
 function formatDuration(seconds: number): string {
@@ -57,9 +59,35 @@ function formatDuration(seconds: number): string {
 export function YouTubeImportPanel({
   client,
   onRingtoneSource,
+  onConnectionLost,
+  disabled = false,
 }: YouTubeImportPanelProps) {
   const [url, setUrl] = useState("");
   const [state, setState] = useState<PanelState>({ status: "idle" });
+  const operationRef = useRef<AbortController | undefined>(undefined);
+  const mountedRef = useRef(true);
+
+  useEffect(() => () => {
+    mountedRef.current = false;
+    operationRef.current?.abort();
+  }, []);
+
+  function beginOperation() {
+    operationRef.current?.abort();
+    const controller = new AbortController();
+    operationRef.current = controller;
+    return controller;
+  }
+
+  function isCurrent(controller: AbortController) {
+    return mountedRef.current &&
+      operationRef.current === controller &&
+      !controller.signal.aborted;
+  }
+
+  function isAbort(error: unknown) {
+    return error instanceof DOMException && error.name === "AbortError";
+  }
   const downloaded = state.status === "ready" ? state.downloaded : undefined;
   const downloadUrl = useObjectUrl(downloaded?.file);
   const video =
@@ -68,37 +96,59 @@ export function YouTubeImportPanel({
       : state.status === "error"
         ? state.video
         : undefined;
+  const sourceUrl =
+    state.status === "ready" || state.status === "downloading"
+      ? state.sourceUrl
+      : state.status === "error"
+        ? state.sourceUrl
+        : undefined;
 
   async function inspect() {
+    const requestedUrl = url.trim();
+    const controller = beginOperation();
     setState({ status: "inspecting" });
     try {
-      setState({ status: "ready", video: await client.inspect(url.trim()) });
+      const inspected = await client.inspect(requestedUrl, controller.signal);
+      if (!isCurrent(controller)) return;
+      setState({ status: "ready", video: inspected, sourceUrl: requestedUrl });
     } catch (error) {
+      if (!isCurrent(controller) || isAbort(error)) return;
+      if (!(error instanceof PersonalApiError) || error.code === "UNAUTHORIZED") {
+        onConnectionLost?.();
+      }
       setState({ status: "error", message: personalErrorMessage(error) });
     }
   }
 
   async function download(format: DownloadFormat) {
-    if (!video) return;
-    setState({ status: "downloading", video, format });
+    if (!video || !sourceUrl) return;
+    const controller = beginOperation();
+    setState({ status: "downloading", video, sourceUrl, format });
     try {
-      const file = await client.download(url.trim(), format);
+      const file = await client.download(sourceUrl, format, controller.signal);
+      if (!isCurrent(controller)) return;
       if (format === "ringtone-source") {
         onRingtoneSource(file);
-        setState({ status: "ready", video });
+        if (isCurrent(controller)) setState({ status: "ready", video, sourceUrl });
       } else {
-        setState({ status: "ready", video, downloaded: { file, format } });
+        setState({ status: "ready", video, sourceUrl, downloaded: { file, format } });
       }
     } catch (error) {
+      if (!isCurrent(controller) || isAbort(error)) return;
+      if (!(error instanceof PersonalApiError) || error.code === "UNAUTHORIZED") {
+        onConnectionLost?.();
+      }
       setState({
         status: "error",
         message: personalErrorMessage(error),
         video,
+        sourceUrl,
       });
     }
   }
 
   const busy = state.status === "inspecting" || state.status === "downloading";
+  const controlsDisabled = busy || disabled;
 
   return (
     <section className="youtube-panel glass-inset">
@@ -117,10 +167,14 @@ export function YouTubeImportPanel({
             inputMode="url"
             placeholder="https://www.youtube.com/watch?v=..."
             value={url}
-            disabled={busy}
-            onChange={(event) => setUrl(event.currentTarget.value)}
+            disabled={controlsDisabled}
+            onChange={(event) => {
+              operationRef.current?.abort();
+              setUrl(event.currentTarget.value);
+              setState({ status: "idle" });
+            }}
           />
-          <button type="submit" disabled={busy || !url.trim()}>
+          <button type="submit" disabled={controlsDisabled || !url.trim()}>
             {state.status === "inspecting" ? "Video aranıyor…" : "Videoyu bul"}
           </button>
         </div>
@@ -142,15 +196,15 @@ export function YouTubeImportPanel({
             <span>{formatDuration(video.durationSeconds)}</span>
           </div>
           <div className="youtube-actions">
-            <button type="button" disabled={busy} onClick={() => void download("mp3")}>
+            <button type="button" disabled={controlsDisabled} onClick={() => void download("mp3")}>
               MP3 indir
             </button>
-            <button type="button" disabled={busy} onClick={() => void download("mp4")}>
+            <button type="button" disabled={controlsDisabled} onClick={() => void download("mp4")}>
               MP4 indir
             </button>
             <button
               type="button"
-              disabled={busy}
+              disabled={controlsDisabled}
               onClick={() => void download("ringtone-source")}
             >
               Zil sesi hazırla

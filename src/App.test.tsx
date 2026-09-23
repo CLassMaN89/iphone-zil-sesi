@@ -2,7 +2,9 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
+import type { PersonalMediaClient } from "./personal/personalMediaClient";
 import { savePersonalServer } from "./personal/personalServerStorage";
+import { PersonalApiError } from "./personal/types";
 import type {
   ConversionRequest,
   ConversionResult,
@@ -297,6 +299,41 @@ describe("App", () => {
     await user.click(screen.getByRole("tab", { name: "Bağlantı" }));
 
     expect(await screen.findByText("Kişisel sunucu kapalı")).toBeVisible();
+    expect(screen.getByText("melodi.mp4")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Zil sesini hazırla" })).toBeEnabled();
+  });
+
+  it("returns to pairing after a connected server rejects a later request", async () => {
+    const user = userEvent.setup();
+    savePersonalServer({
+      baseUrl: "https://quiet-space-8787.app.github.dev",
+      token: "expired-token",
+    });
+    const client: PersonalMediaClient = {
+      health: vi.fn(async () => true),
+      inspect: vi.fn(async () => {
+        throw new PersonalApiError("UNAUTHORIZED", "expired");
+      }),
+      download: vi.fn(),
+    };
+    render(
+      <App
+        createTranscoder={async () => new RecordingTranscoder()}
+        createPersonalClient={() => client}
+      />,
+    );
+
+    await loadEditor(user);
+    await user.click(screen.getByRole("tab", { name: "Bağlantı" }));
+    expect(await screen.findByText("Kişisel sunucu bağlı")).toBeVisible();
+    await user.type(
+      screen.getByLabelText("YouTube video bağlantısı"),
+      "https://youtu.be/abc123",
+    );
+    await user.click(screen.getByRole("button", { name: "Videoyu bul" }));
+
+    expect(await screen.findByText("Kişisel sunucu kapalı")).toBeVisible();
+    expect(screen.getByLabelText("Eşleştirme kodu")).toBeVisible();
     expect(screen.getByText("melodi.mp4")).toBeVisible();
     expect(screen.getByRole("button", { name: "Zil sesini hazırla" })).toBeEnabled();
   });

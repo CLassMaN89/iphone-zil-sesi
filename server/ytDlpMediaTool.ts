@@ -144,6 +144,8 @@ function argumentsFor(
 ): string[] {
   return [
     "--no-playlist",
+    "--js-runtimes",
+    "node",
     "--max-filesize",
     "200M",
     ...FORMAT_ARGS[format],
@@ -257,11 +259,29 @@ export function createYtDlpMediaTool(options: {
   const files = options.files ?? defaultFiles;
   const active = new Set<ActiveWork>();
 
-  async function inspect(url: string): Promise<VideoInfo> {
+  function linkedController(signal?: AbortSignal) {
     const controller = new AbortController();
+    const abort = () => controller.abort(signal?.reason);
+    if (signal?.aborted) abort();
+    else signal?.addEventListener("abort", abort, { once: true });
+    return {
+      controller,
+      detach: () => signal?.removeEventListener("abort", abort),
+    };
+  }
+
+  async function inspect(url: string, signal?: AbortSignal): Promise<VideoInfo> {
+    const { controller, detach } = linkedController(signal);
     const promise = run(
       "yt-dlp",
-      ["--dump-single-json", "--skip-download", "--no-playlist", url],
+      [
+        "--dump-single-json",
+        "--skip-download",
+        "--no-playlist",
+        "--js-runtimes",
+        "node",
+        url,
+      ],
       { signal: controller.signal },
     );
     const work: ActiveWork = { controller, promise };
@@ -275,6 +295,7 @@ export function createYtDlpMediaTool(options: {
         "Video bulunamadı veya oturum gerektiriyor.",
       );
     } finally {
+      detach();
       active.delete(work);
     }
   }
@@ -282,20 +303,22 @@ export function createYtDlpMediaTool(options: {
   async function prepare(
     url: string,
     format: DownloadFormat,
+    signal?: AbortSignal,
   ): Promise<PreparedDownload> {
-    const video = await inspect(url);
+    const video = await inspect(url, signal);
     const directory = await files.mkdtemp(
       path.join(tmpdir(), "iphone-ringtone-"),
     );
     let cleaned = false;
     let work: ActiveWork | undefined;
+    const { controller, detach } = linkedController(signal);
     const cleanup = async () => {
       if (cleaned) return;
       cleaned = true;
+      detach();
       if (work) active.delete(work);
       await files.rm(directory);
     };
-    const controller = new AbortController();
     const outputBase = `${directory.replace(/[\\/]+$/, "")}/output`;
     const promise = run("yt-dlp", argumentsFor(format, outputBase, url), {
       cwd: directory,

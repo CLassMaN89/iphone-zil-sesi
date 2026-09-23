@@ -19,6 +19,7 @@ const personalProps = {
   personalClient,
   onSavePersonal: vi.fn(),
   onClearPersonal: vi.fn(),
+  onPersonalConnectionLost: vi.fn(),
 };
 
 describe("FilePicker", () => {

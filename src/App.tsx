@@ -263,6 +263,7 @@ export function App({
           personalClient={personalClient}
           onSavePersonal={savePersonal}
           onClearPersonal={clearPersonal}
+          onPersonalConnectionLost={() => setPersonalStatus("offline")}
           importingUrl={importingUrl}
           disabled={sourceBusy}
         />

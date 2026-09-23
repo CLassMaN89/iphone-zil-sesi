@@ -10,8 +10,8 @@ type Fetcher = typeof fetch;
 
 export interface PersonalMediaClient {
   health(): Promise<boolean>;
-  inspect(url: string): Promise<YouTubeVideo>;
-  download(url: string, format: DownloadFormat): Promise<File>;
+  inspect(url: string, signal?: AbortSignal): Promise<YouTubeVideo>;
+  download(url: string, format: DownloadFormat, signal?: AbortSignal): Promise<File>;
 }
 
 interface ApiErrorEnvelope {
@@ -54,18 +54,20 @@ export function createPersonalMediaClient(
       return body.ok;
     },
 
-    async inspect(url) {
+    async inspect(url, signal) {
       const response = await request("/api/youtube/inspect", {
         method: "POST",
+        signal,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url }),
       });
       return (await response.json()) as YouTubeVideo;
     },
 
-    async download(url, format) {
+    async download(url, format, signal) {
       const response = await request("/api/youtube/download", {
         method: "POST",
+        signal,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url, format }),
       });

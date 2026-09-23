@@ -145,6 +145,10 @@ export function createPersonalServerApp(options: PersonalServerOptions) {
     }
     downloadActive = true;
 
+    const controller = new AbortController();
+    const abortPreparation = () => controller.abort();
+    req.once("aborted", abortPreparation);
+    res.once("close", abortPreparation);
     let download: PreparedDownload | undefined;
     let cleanupPromise: Promise<void> | undefined;
     let thrown: unknown;
@@ -166,16 +170,16 @@ export function createPersonalServerApp(options: PersonalServerOptions) {
       download = await options.mediaTool.prepare(
         canonicalUrl,
         format as DownloadFormat,
+        controller.signal,
       );
-      res.once("close", () => {
-        void cleanupOnce();
-      });
       await sendFile(res, download);
     } catch (error) {
       thrown = error;
     } finally {
       await cleanupOnce();
       downloadActive = false;
+      req.off("aborted", abortPreparation);
+      res.off("close", abortPreparation);
     }
 
     if (thrown && !res.headersSent && !res.writableEnded) {

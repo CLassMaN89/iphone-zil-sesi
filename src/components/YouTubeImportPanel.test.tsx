@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PersonalMediaClient } from "../personal/personalMediaClient";
@@ -113,6 +113,84 @@ describe("YouTubeImportPanel", () => {
       "Kişisel sunucu başka bir dosya hazırlıyor. İlk işlem bitince tekrar deneyin.",
     );
     expect(screen.queryByText("raw server detail")).not.toBeInTheDocument();
+  });
+
+  it("reports an expired pairing after a later unauthorized request", async () => {
+    const user = userEvent.setup();
+    const client = fakeClient();
+    const onConnectionLost = vi.fn();
+    client.inspect = vi.fn(async () => {
+      throw new PersonalApiError("UNAUTHORIZED", "expired");
+    });
+    render(
+      <YouTubeImportPanel
+        client={client}
+        onRingtoneSource={vi.fn()}
+        onConnectionLost={onConnectionLost}
+      />,
+    );
+
+    await user.type(
+      screen.getByLabelText("YouTube video bağlantısı"),
+      "https://youtu.be/abc123",
+    );
+    await user.click(screen.getByRole("button", { name: "Videoyu bul" }));
+
+    expect(onConnectionLost).toHaveBeenCalledOnce();
+  });
+
+  it("does not replace the editor after a pending import is unmounted", async () => {
+    const user = userEvent.setup();
+    const client = fakeClient();
+    let finishDownload!: (file: File) => void;
+    client.download = vi.fn(
+      () =>
+        new Promise<File>((resolve) => {
+          finishDownload = resolve;
+        }),
+    );
+    const onRingtoneSource = vi.fn();
+    const view = render(
+      <YouTubeImportPanel client={client} onRingtoneSource={onRingtoneSource} />,
+    );
+    await user.type(
+      screen.getByLabelText("YouTube video bağlantısı"),
+      "https://youtu.be/abc123",
+    );
+    await user.click(screen.getByRole("button", { name: "Videoyu bul" }));
+    await user.click(await screen.findByRole("button", { name: "Zil sesi hazırla" }));
+
+    view.unmount();
+    finishDownload(new File(["late"], "late.m4a", { type: "audio/mp4" }));
+    await waitFor(() => expect(client.download).toHaveBeenCalledOnce());
+    expect(onRingtoneSource).not.toHaveBeenCalled();
+  });
+
+  it("clears inspected actions when the YouTube URL changes", async () => {
+    const user = userEvent.setup();
+    const client = fakeClient();
+    render(<YouTubeImportPanel client={client} onRingtoneSource={vi.fn()} />);
+    const input = screen.getByLabelText("YouTube video bağlantısı");
+    await user.type(input, "https://youtu.be/abc123");
+    await user.click(screen.getByRole("button", { name: "Videoyu bul" }));
+    expect(await screen.findByText("Kısa video")).toBeVisible();
+
+    await user.clear(input);
+    await user.type(input, "https://youtu.be/different");
+
+    expect(screen.queryByText("Kısa video")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "MP3 indir" })).not.toBeInTheDocument();
+  });
+
+  it("disables YouTube controls while the workspace is busy", () => {
+    render(
+      <YouTubeImportPanel
+        client={fakeClient()}
+        onRingtoneSource={vi.fn()}
+        disabled
+      />,
+    );
+    expect(screen.getByLabelText("YouTube video bağlantısı")).toBeDisabled();
   });
 });
 

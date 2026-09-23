@@ -89,4 +89,24 @@ describe("personalMediaClient", () => {
       }),
     );
   });
+
+  it("forwards cancellation signals to personal API requests", async () => {
+    const fetcher = vi.fn(async () => new Response(JSON.stringify({
+      id: "abc",
+      title: "Kısa video",
+      durationSeconds: 90,
+      thumbnailUrl: "",
+    })));
+    const controller = new AbortController();
+
+    await createPersonalMediaClient(config, fetcher).inspect(
+      "https://youtu.be/abc",
+      controller.signal,
+    );
+
+    expect(fetcher).toHaveBeenCalledWith(
+      `${config.baseUrl}/api/youtube/inspect`,
+      expect.objectContaining({ signal: controller.signal }),
+    );
+  });
 });

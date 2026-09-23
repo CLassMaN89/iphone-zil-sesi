@@ -12,6 +12,7 @@ interface FilePickerProps {
   personalClient?: PersonalMediaClient;
   onSavePersonal: (config: PersonalServerConfig) => void;
   onClearPersonal: () => void;
+  onPersonalConnectionLost: () => void;
   importingUrl?: boolean;
   disabled?: boolean;
 }
@@ -32,6 +33,7 @@ export function FilePicker({
   personalClient,
   onSavePersonal,
   onClearPersonal,
+  onPersonalConnectionLost,
   importingUrl = false,
   disabled = false,
 }: FilePickerProps) {
@@ -69,6 +71,7 @@ export function FilePicker({
               type="button"
               className={linkMode === "youtube" ? "is-active" : ""}
               aria-pressed={linkMode === "youtube"}
+              disabled={disabled}
               onClick={() => setLinkMode("youtube")}
             >
               YouTube
@@ -77,6 +80,7 @@ export function FilePicker({
               type="button"
               className={linkMode === "direct" ? "is-active" : ""}
               aria-pressed={linkMode === "direct"}
+              disabled={disabled}
               onClick={() => setLinkMode("direct")}
             >
               Doğrudan dosya
@@ -94,6 +98,8 @@ export function FilePicker({
                 <YouTubeImportPanel
                   client={personalClient}
                   onRingtoneSource={onFile}
+                  onConnectionLost={onPersonalConnectionLost}
+                  disabled={disabled}
                 />
               )}
             </div>
